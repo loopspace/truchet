@@ -26,8 +26,9 @@
 %\iffalse
 %<*documentation>
 \documentclass{article}
-\usepackage{tikz-truchet}
 \usepackage{doc}
+\usepackage{tikz}
+\usetikzlibrary{truchet}
 \usepackage{listings}
 \usepackage{url}
 \usepackage{hyperref}
@@ -44,27 +45,32 @@
 %\iffalse
 %<*truchet>
 \NeedsTeXFormat{LaTeX2e}
-\ProvidesPackage{tikz-truchet}[2019/02/12 tikz-truchet]
+\ProvidesFile{tikz-truchet}[2019/02/12 tikz-truchet]
 
-\RequirePackage{tikz}
-\RequirePackage{ifthen}
+\RequirePackage{expl3}
 
 %\fi
 % Before starting, I recommend setting the following tikz options to make your pictures look nicer:
-%\begin{lstlisting}
-\tikzset{x=2cm,y=2cm,line cap=round,line join=round, every picture}
-%\end{lstlisting}
+%\iffalse
+%<*example>
+%\fi
+\begin{lstlisting}
+\tikzset{x=2cm,y=2cm,line cap=round,line join=round}
+\end{lstlisting}
+%\iffalse
+%</example>
+%\fi
 %
 % \section{Squares}
-% \DescribeMacro{\truchetsquare}
-% You can draw square Truchet tile using the command \lstinline{\truchetsquare}.
+% \DescribeMacro{truchet square}
+% You can draw square Truchet tile using the pic \lstinline{truchet square}.
 % The following code will produce the output below.
 %\iffalse
 %<*example>
 %\fi
 \begin{lstlisting}
 \begin{tikzpicture}
-  \truchetsquare{b}{w}{b}{w}{b}
+  \pic {truchet square};
 \end{tikzpicture}
 \end{lstlisting}
 %\iffalse
@@ -72,22 +78,19 @@
 %\fi
 % \begin{center}
 % \begin{tikzpicture}
-%   \truchetsquare{b}{w}{b}{w}{b}
+%   \pic {truchet square};
 % \end{tikzpicture}
 % \end{center}
-% The five inputs of the command are the colour (\lstinline{b} or \lstinline{w}) at the centre, the North East, North West, South West,
-% and South East corners (in that order)
 %
-% You can a square bracketed input to move the tiles. The tiles are 1 unit wide.
 %\iffalse
 %<*example>
 %\fi
 \begin{lstlisting}
 \begin{tikzpicture}
-  \truchetsquare{b}{w}{b}{w}{b}
-  \truchetsquare[(1.2,0)]{w}{b}{w}{b}{w}
-  \truchetsquare[(0,-1.2)]{b}{b}{w}{b}{w}
-  \truchetsquare[(1.2,-1.2)]{w}{w}{b}{w}{b}
+  \pic {truchet square};
+  \pic[rotate=90] at (0,1.2) {truchet square};
+  \pic[truchet/swap colours] at (1.2,0) {truchet square};
+  \pic[rotate=90,truchet/swap colours] at (1.2,1.2) {truchet square};
 \end{tikzpicture}
 \end{lstlisting}
 %\iffalse
@@ -95,62 +98,176 @@
 %\fi
 % \begin{center}
 % \begin{tikzpicture}
-%   \truchetsquare{b}{w}{b}{w}{b}
-%   \truchetsquare[(1.2,0)]{w}{b}{w}{b}{w}
-%   \truchetsquare[(0,-1.2)]{b}{b}{w}{b}{w}
-%   \truchetsquare[(1.2,-1.2)]{w}{w}{b}{w}{b}
+%  \pic {truchet square};
+%  \pic[rotate=90] at (0,1.2) {truchet square};
+%  \pic[truchet/swap colours] at (1.2,0) {truchet square};
+%  \pic[rotate=90,truchet/swap colours] at (1.2,1.2) {truchet square};
 % \end{tikzpicture}
 % \end{center}
 %
+% \begin{center}
+% \begin{tikzpicture}
+% \begin{scope}[yshift=-2.4cm]
+%   \pic at (0,0) {diagonal square};
+%   \pic[rotate=270] at (1.2,0) {diagonal square};
+%   \pic[rotate=90] at (0,-1.2) {diagonal square};
+%   \pic[rotate=180] at (1.2,-1.2) {diagonal square};
+% \end{scope}
+% \end{tikzpicture}
+% \end{center}
 %\iffalse
-\newcommand{\truchetsquare}[6][(0,0)]{
-  \begin{scope}[shift={#1}]
-    \ifthenelse{\equal{#2}{b}}{
-        \fill[black] (0,0) rectangle (1,1);
-    }{
-        \fill[white] (0,0) rectangle (1,1);
+\ExplSyntaxOn
+
+\tl_new:N \l__truchet_edge_colour_tl
+\tl_new:N \l__truchet_face_colour_tl
+\tl_new:N \l__truchet_first_colour_tl
+\tl_new:N \l__truchet_second_colour_tl
+\tl_new:N \l__truchet_tmpa_tl
+\tl_set:Nn \l__truchet_first_colour_tl {white}
+\tl_set:Nn \l__truchet_second_colour_tl {black}
+\tl_set:Nn \l__truchet_edge_tl {black}
+\tl_const:Nx \c__truchet_colon_tl { \token_to_str:N : }
+
+\cs_generate_variant:Nn \tl_if_eq:nnTF {xnTF}
+
+\tikzset{
+  truchet~ square/.pic={
+    code={
+      \clip (-.5,-.5) rectangle +(1,1);
+      \fill[\l__truchet_first_colour_tl] (-.5,-.5) rectangle +(1,1);
+      \fill[\l__truchet_second_colour_tl] (-.5,-.5) circle[radius=.5] +(1,1) circle[radius=.5];
+      \draw[\l__truchet_edge_colour_tl,line~ width=2\pgflinewidth] (-.5,-.5) rectangle +(1,1);
     }
-    \ifthenelse{\equal{#3}{#2}}{}{
-        \ifthenelse{\equal{#3}{b}}{
-            \fill [black,domain=0:90] plot ({0.5*cos(\x)}, {1-0.5*sin(\x)}) -- (0,1) -- cycle;
-        }{
-            \fill [white,domain=0:90] plot ({0.5*cos(\x)}, {1-0.5*sin(\x)}) -- (0,1) -- cycle;
-        }
+  },
+  diagonal~ square/.pic={
+    code={
+      \clip (-.5,-.5) rectangle +(1,1);
+      \fill[\l__truchet_first_colour_tl] (-.5,-.5) rectangle +(1,1);
+      \fill[\l__truchet_second_colour_tl] (-.5,-.5) -- +(1,1) -| cycle;
+      \draw[\l__truchet_edge_colour_tl,line~ width=2\pgflinewidth] (-.5,-.5) rectangle +(1,1);
     }
-    \ifthenelse{\equal{#4}{#2}}{}{
-        \ifthenelse{\equal{#4}{b}}{
-            \fill [black,domain=0:90] plot ({1-0.5*cos(\x)}, {1-0.5*sin(\x)}) -- (1,1) -- cycle;
-        }{
-            \fill [white,domain=0:90] plot ({1-0.5*cos(\x)}, {1-0.5*sin(\x)}) -- (1,1) -- cycle;
-        }
+  },
+  truchet~ hexagon/.pic={
+    code={
+      \clip (0,0) +(1,0) foreach \k in {1,...,6} { -- +(\k*60 \c__truchet_colon_tl 1)};
+      \fill[\l__truchet_first_colour_tl,line~ width=2\pgflinewidth] (1,0) foreach \k in {1,...,6} { -- (\k*60\c__truchet_colon_tl 1)};
+      \foreach \k in {1,3,5} {
+        \fill[\l__truchet_second_colour_tl] (\k*60\c__truchet_colon_tl 1) circle[radius=.5];
+      }
+      \draw[\l__truchet_edge_colour_tl,line~ width=2\pgflinewidth] (1,0) foreach \k in {1,...,6} { -- (\k*60\c__truchet_colon_tl 1)};
     }
-    \ifthenelse{\equal{#5}{#2}}{}{
-        \ifthenelse{\equal{#5}{b}}{
-            \fill [black,domain=0:90] plot ({1-0.5*cos(\x)}, {0.5*sin(\x)}) -- (1,0) -- cycle;
-        }{
-            \fill [white,domain=0:90] plot ({1-0.5*cos(\x)}, {0.5*sin(\x)}) -- (1,0) -- cycle;
-        }
+  },
+  truchet~ split~ hexagon/.pic={
+    code={
+      \clip (0,0) +(1,0) foreach \k in {1,...,6} { -- +(\k*60 \c__truchet_colon_tl 1)};
+      \fill[\l__truchet_first_colour_tl,line~ width=2\pgflinewidth] (0,-1) rectangle (1,1);
+      \fill[\l__truchet_second_colour_tl,line~ width=2\pgflinewidth] (0,-1) rectangle (-1,1);
+      \fill[\l__truchet_second_colour_tl] (1,0) circle[radius=.5];
+      \fill[\l__truchet_first_colour_tl] (-1,0) circle[radius=.5];
+      \draw[\l__truchet_edge_colour_tl,line~ width=2\pgflinewidth] (1,0) foreach \k in {1,...,6} { -- (\k*60\c__truchet_colon_tl 1)};
     }
-    \ifthenelse{\equal{#6}{#2}}{}{
-        \ifthenelse{\equal{#6}{b}}{
-            \fill [black,domain=0:90] plot ({0.5*cos(\x)}, {0.5*sin(\x)}) -- (0,0) -- cycle;
-        }{
-            \fill [white,domain=0:90] plot ({0.5*cos(\x)}, {0.5*sin(\x)}) -- (0,0) -- cycle;
-        }
+  },
+  truchet~ cube/.pic={
+    code={
+      \begin{scope}[
+        y={(0,1)},
+        x={(1.17,0.22)},
+        z={(-0.6,0.62)}
+      ]
+
+      \tl_if_eq:xnTF {\tl_item:nn {#1} {1}} {w}
+      {
+        \tl_set_eq:NN \l__truchet_face_colour_tl \l__truchet_first_colour_tl
+      }
+      {
+        \tl_set_eq:NN \l__truchet_face_colour_tl \l__truchet_second_colour_tl
+      }
+      \fill[\l__truchet_face_colour_tl,fill~ opacity=0.6] (0,0,0) -- (0,0,1) -- (1,0,1) -- (1,0,0) -- cycle;
+
+      \tl_if_eq:xnTF {\tl_item:nn {#1} {2}} {w}
+      {
+        \tl_set_eq:NN \l__truchet_face_colour_tl \l__truchet_first_colour_tl
+      }
+      {
+        \tl_set_eq:NN \l__truchet_face_colour_tl \l__truchet_second_colour_tl
+      }
+      \fill[\l__truchet_face_colour_tl,fill~ opacity=0.6] (0,0,0) -- (1,0,0) -- (1,1,0) -- (0,1,0) -- cycle;
+
+      \tl_if_eq:xnTF {\tl_item:nn {#1} {3}} {w}
+      {
+        \tl_set_eq:NN \l__truchet_face_colour_tl \l__truchet_first_colour_tl
+      }
+      {
+        \tl_set_eq:NN \l__truchet_face_colour_tl \l__truchet_second_colour_tl
+      }
+      \fill[\l__truchet_face_colour_tl,fill~ opacity=0.6] (1,0,0) -- (1,1,0) -- (1,1,1) -- (1,0,1) -- cycle;
+      
+      \tl_if_eq:xnTF {\tl_item:nn {#1} {4}} {w}
+      {
+        \tl_set_eq:NN \l__truchet_face_colour_tl \l__truchet_first_colour_tl
+      }
+      {
+        \tl_set_eq:NN \l__truchet_face_colour_tl \l__truchet_second_colour_tl
+      }
+      \fill[\l__truchet_face_colour_tl,fill~ opacity=0.6] (0,0,1) -- (1,0,1) -- (1,1,1) -- (0,1,1) -- cycle;
+
+      \tl_if_eq:xnTF {\tl_item:nn {#1} {5}} {w}
+      {
+        \tl_set_eq:NN \l__truchet_face_colour_tl \l__truchet_first_colour_tl
+      }
+      {
+        \tl_set_eq:NN \l__truchet_face_colour_tl \l__truchet_second_colour_tl
+      }
+      \fill[\l__truchet_face_colour_tl,fill~ opacity=0.6] (0,0,0) -- (0,1,0) -- (0,1,1) -- (0,0,1) -- cycle;
+      
+      \tl_if_eq:xnTF {\tl_item:nn {#1} {6}} {w}
+      {
+        \tl_set_eq:NN \l__truchet_face_colour_tl \l__truchet_first_colour_tl
+      }
+      {
+        \tl_set_eq:NN \l__truchet_face_colour_tl \l__truchet_second_colour_tl
+      }
+      \fill[\l__truchet_face_colour_tl,fill~ opacity=0.6] (0,1,0) -- (0,1,1) -- (1,1,1) -- (1,1,0) -- cycle;
+
+      \draw (0,0,0) -- (1,0,0) -- (1,1,0) -- (0,1,0) -- cycle;
+      \draw (0,0,1) -- (1,0,1) -- (1,1,1) -- (0,1,1) -- cycle;
+      \draw
+      (0,0,0) -- +(0,0,1)
+      (1,0,0) -- +(0,0,1)
+      (1,1,0) -- +(0,0,1)
+      (0,1,0) -- +(0,0,1)
+      ;
+      \end{scope}
     }
-    \draw[black,line width=1pt] (0,0) rectangle (1,1);
-  \end{scope}
+  },
+  truchet/.is~ family,
+  truchet/.cd,
+  first~ colour/.code={
+    \tl_set:Nn \l__truchet_first_colour_tl {#1}
+  },
+  second~ colour/.code={
+    \tl_set:Nn \l__truchet_second_colour_tl {#1}
+  },
+  swap~ colours/.code={
+    \tl_set_eq:NN \l__truchet_tmpa_tl \l__truchet_second_colour_tl
+    \tl_set_eq:NN \l__truchet_second_colour_tl \l__truchet_first_colour_tl
+    \tl_set_eq:NN \l__truchet_first_colour_tl \l__truchet_tmpa_tl
+  },
+  edge~ colour/.code={
+    \tl_set:Nn \l__truchet_edge_colour_tl {#1}
+  },
 }
+\ExplSyntaxOff
 %\fi 
 % 
-% \DescribeMacro{\diagonalsquare}
-% The command \lstinline{\diagonalsquare} can be used to draw a square tile that is half white and half black along a diagonal.
+% \DescribeMacro{diagonal square}
+% The pic \lstinline{diagonal square} can be used to draw a square tile that is half white and half black along a diagonal.
 %\iffalse
 %<*example>
 %\fi
 \begin{lstlisting}
 \begin{tikzpicture}
-  \diagonalsquare{x}{w}{x}{b}
+  \pic {diagonal square};
 \end{tikzpicture}
 \end{lstlisting}
 %\iffalse
@@ -158,85 +275,22 @@
 %\fi 
 % \begin{center}
 % \begin{tikzpicture}
-% \diagonalsquare{x}{w}{x}{b}
+%   \pic {diagonal square};
 % \end{tikzpicture}
 % \end{center}
-% The four inputs are the color (\lstinline{b} or \lstinline{w}), or \lstinline{x} if the colour changes at that corner, of
-% the North East, North West, South West, and South East corners (in that order).
 %
-% \DescribeMacro{\tileA}
-% \DescribeMacro{\tileB}
-% \DescribeMacro{\tileC}
-% \DescribeMacro{\tileD}
-% There are only five such tiles. They can be created using the convenience functions
-% \lstinline{\tileA},
-% \lstinline{\tileB},
-% \lstinline{\tileC}, and
-% \lstinline{\tileD}.
-%\iffalse
-%<*example>
-%\fi
-\begin{lstlisting}
-\begin{tikzpicture}
-  \tileA
-  \tileB[(1.2,0)]
-  \tileC[(2.4,0)]
-  \tileD[(3.6,0)]
-\end{tikzpicture}
-\end{lstlisting}
-%\iffalse
-%</example>
-%\fi 
-% \begin{center}
-% \begin{tikzpicture}
-%  \tileA
-%  \tileB[(1.2,0)]
-%  \tileC[(2.4,0)]
-%  \tileD[(3.6,0)]
-% \end{tikzpicture}
-% \end{center}
-% 
-%\iffalse
-\newcommand{\diagonalsquare}[5][(0,0)]{
-  \begin{scope}[shift={#1}]
-    \fill[white] (0,0) rectangle (1,1);
-    \ifthenelse{\equal{#2}{b}}{
-        \fill [black] (0,0) -- (0,1) -- (1,1) -- cycle;
-    }{}
-    \ifthenelse{\equal{#3}{b}}{
-        \fill [black] (0,1) -- (1,1) -- (1,0) -- cycle;
-    }{}
-    \ifthenelse{\equal{#4}{b}}{
-        \fill [black] (1,1) -- (1,0) -- (0,0) -- cycle;
-    }{}
-    \ifthenelse{\equal{#5}{b}}{
-        \fill [black] (1,0) -- (0,0) -- (0,1) -- cycle;
-    }{}
-    \draw[black,line width=1pt] (0,0) rectangle (1,1);
-  \end{scope}
-}
-
-\newcommand{\tileA}[1][(0,0)]{\diagonalsquare[#1]{x}{w}{x}{b}}
-\newcommand{\tileB}[1][(0,0)]{\diagonalsquare[#1]{b}{x}{w}{x}}
-\newcommand{\tileC}[1][(0,0)]{\diagonalsquare[#1]{x}{b}{x}{w}}
-\newcommand{\tileD}[1][(0,0)]{\diagonalsquare[#1]{w}{x}{b}{x}}
-
-%\fi
 %
 % \section{Hexagons}
-% To draw hexagonal Truchet tiles, you can use the commands \lstinline{\truchethex} and \lstinline{\truchetsplithex}.
+% To draw hexagonal Truchet tiles, you can use the pics \lstinline{truchet hexagon} and \lstinline{truchet split hexagon}.
 %
-% \DescribeMacro{\truchethex}
-% The command \lstinline{\truchethex} takes 7 inputs: the colour (\lstinline{b} or \lstinline{w}) at the
-% centre, then all the corners starting at the top left and going clockwise. Again an argument can be passed in square
-% brackets to move the tile.
+% \DescribeMacro{truchet hexagon}
+% The pic \lstinline{truchet hexagon} draws the basic hexagon.
 %\iffalse
 %<*example>
 %\fi
 \begin{lstlisting}
 \begin{tikzpicture}
-  \truchethex{b}{w}{b}{w}{b}{w}{b}
-  \truchethex[(2.2,0)]{w}{w}{b}{w}{b}{w}{b}
+  \pic {truchet hexagon};
 \end{tikzpicture}
 \end{lstlisting}
 %\iffalse
@@ -244,19 +298,19 @@
 %\fi 
 % \begin{center}
 % \begin{tikzpicture}
-%  \truchethex{b}{w}{b}{w}{b}{w}{b}
-%  \truchethex[(2.2,0)]{w}{w}{b}{w}{b}{w}{b}
+%  \pic {truchet hexagon};
+%  \pic at (3,0) {truchet split hexagon};
 % \end{tikzpicture}
 % \end{center}
 %
-% \DescribeMacro{\truchetsplithex}
-% The command \lstinline{\truchetsplithex} draws a Truchet tile split in half like the following.
+% \DescribeMacro{truchet split hexagon}
+% The pic \lstinline{truchet split hexagon} draws a Truchet tile split in half like the following.
 %\iffalse
 %<*example>
 %\fi
 \begin{lstlisting}
 \begin{tikzpicture}
-  \truchetsplithex
+  \pic {truchet split hexagon};
 \end{tikzpicture}
 \end{lstlisting}
 %\iffalse
@@ -264,128 +318,23 @@
 %\fi 
 % \begin{center}
 % \begin{tikzpicture}
-%  \truchetsplithex
+%  \pic {truchet split hexagon};
 % \end{tikzpicture}
 % \end{center}
 % 
-% \DescribeEnv{rotatehex}
-% The environment \lstinline{rotatehex} can be used to rotate a hexagonal tile about its centre. The angle should be given in degrees.
-% 
-%\iffalse
-%<*example>
-%\fi
-\begin{lstlisting}
-\begin{tikzpicture}
-  \begin{rotatehex}{30}
-    \truchetsplithex
-  \end{rotatehex}
-\end{tikzpicture}
-\end{lstlisting}
-%\iffalse
-%</example>
-%\fi 
-% \begin{center}
-% \begin{tikzpicture}
-%  \begin{rotatehex}{30}
-%    \truchetsplithex
-%  \end{rotatehex}
-%  \begin{rotatehex}{30}
-%    \truchetsplithex
-%  \end{rotatehex}
-% \end{tikzpicture}
-% \end{center}
-% 
-%\iffalse
-\newcommand{\truchetsplithex}[1][(0,0)]{
-  \begin{scope}[shift={#1}]
-    \fill[white] (0,0) -- (1,0) -- (1.5,0.866) -- (1,1.732) -- (0,1.732) -- (-0.5,0.866) -- cycle;
-    \fill[black] (0,0) -- (.5,0) -- (.5,1.732) -- (0,1.732) -- (-0.5,0.866) -- cycle;
-    \fill[black,domain=120:240] plot ({1.5+0.5*cos(\x)}, {0.866+0.5*sin(\x)}) -- (1.5,0.866) -- cycle;
-    \fill[white,domain=-60:60] plot ({-0.5+0.5*cos(\x)}, {0.866+0.5*sin(\x)}) -- (-0.5,0.866) -- cycle;
-    \draw[black,line width=1pt] (0,0) -- (1,0) -- (1.5,0.866) -- (1,1.732) -- (0,1.732) -- (-0.5,0.866) -- cycle;
-  \end{scope}
-}
-
-\newcommand{\truchethex}[8][(0,0)]{
-  \begin{scope}[shift={#1}]
-    \ifthenelse{\equal{#2}{b}}{
-        \fill[black] (0,0) -- (1,0) -- (1.5,0.866) -- (1,1.732) -- (0,1.732) -- (-0.5,0.866) -- cycle;
-    }{
-        \fill[white] (0,0) -- (1,0) -- (1.5,0.866) -- (1,1.732) -- (0,1.732) -- (-0.5,0.866) -- cycle;
-    }
-    \ifthenelse{\equal{#3}{#2}}{}{
-        \ifthenelse{\equal{#3}{b}}{
-            \fill[black,domain=240:360,line width=1pt] plot ({0.5*cos(\x)}, {1.732+0.5*sin(\x)}) -- (0,1.732) -- cycle;
-        }{
-            \fill[white,domain=240:360,line width=1pt] plot ({0.5*cos(\x)}, {1.732+0.5*sin(\x)}) -- (0,1.732) -- cycle;
-        }
-    }
-    \ifthenelse{\equal{#4}{#2}}{}{
-        \ifthenelse{\equal{#4}{b}}{
-            \fill[black,domain=180:300,line width=1pt] plot ({1+0.5*cos(\x)}, {1.732+0.5*sin(\x)}) -- (1,1.732) -- cycle;
-        }{
-            \fill[white,domain=180:300,line width=1pt] plot ({1+0.5*cos(\x)}, {1.732+0.5*sin(\x)}) -- (1,1.732) -- cycle;
-        }
-    }
-    \ifthenelse{\equal{#5}{#2}}{}{
-        \ifthenelse{\equal{#5}{b}}{
-            \fill[black,domain=120:240,line width=1pt] plot ({1.5+0.5*cos(\x)}, {0.866+0.5*sin(\x)}) -- (1.5,0.866) -- cycle;
-        }{
-            \fill[white,domain=120:240,line width=1pt] plot ({1.5+0.5*cos(\x)}, {0.866+0.5*sin(\x)}) -- (1.5,0.866) -- cycle;
-        }
-    }
-    \ifthenelse{\equal{#6}{#2}}{}{
-        \ifthenelse{\equal{#6}{b}}{
-            \fill[black,domain=60:180,line width=1pt] plot ({1+0.5*cos(\x)}, {0.5*sin(\x)}) -- (1,0) -- cycle;
-        }{
-            \fill[white,domain=60:180,line width=1pt] plot ({1+0.5*cos(\x)}, {0.5*sin(\x)}) -- (1,0) -- cycle;
-        }
-    }
-    \ifthenelse{\equal{#7}{#2}}{}{
-        \ifthenelse{\equal{#7}{b}}{
-            \fill[black,domain=0:120,line width=1pt] plot ({0.5*cos(\x)}, {0.5*sin(\x)}) -- (0,0) -- cycle;
-        }{
-            \fill[white,domain=0:120,line width=1pt] plot ({0.5*cos(\x)}, {0.5*sin(\x)}) -- (0,0) -- cycle;
-        }
-    }
-    \ifthenelse{\equal{#8}{#2}}{}{
-        \ifthenelse{\equal{#8}{b}}{
-            \fill[black,domain=-60:60,line width=1pt] plot ({-0.5+0.5*cos(\x)}, {0.866+0.5*sin(\x)}) -- (-0.5,0.866) -- cycle;
-        }{
-            \fill[white,domain=-60:60,line width=1pt] plot ({-0.5+0.5*cos(\x)}, {0.866+0.5*sin(\x)}) -- (-0.5,0.866) -- cycle;
-        }
-    }
-    \draw[black,line width=1pt] (0,0) -- (1,0) -- (1.5,0.866) -- (1,1.732) -- (0,1.732) -- (-0.5,0.866) -- cycle;
-  \end{scope}
-}
-
-
-\newenvironment{rotatehex}[1]{
-    \begin{scope}[shift={(0.5,0.866)}]
-        \begin{scope}[rotate=#1]
-            \begin{scope}[shift={(-0.5,-0.866)}]
-}{
-            \end{scope}
-        \end{scope}
-    \end{scope}
-}
-
-%\fi
-%
 % \section{Cubes}
-% \DescribeMacro{\truchetcube}
-% The command \lstinline{\truchetcube} can be used to draw Cubes with differently coloured faces.
-% The six inputs of the command are the colour (\lstinline{b} or \lstinline{w}) of the
+% \DescribeMacro{truchet cube}
+% The pic \lstinline{truchet cube} can be used to draw Cubes with differently coloured faces.
+% The input of the pic are the colours (\lstinline{b} or \lstinline{w}) of the
 % bottom, front, right, back, left, and top faces of the cube (in that order).
 %\iffalse
 %<*example>
 %\fi
 \begin{lstlisting}
 \begin{tikzpicture}[x=1.2cm,y=1.2cm]
-\truchetcube{w}{w}{w}{w}{w}{w}
-\truchetcube[(0,-3cm)]{b}{b}{b}{b}{b}{b}
-\truchetcube[(2.4cm,0)]{w}{w}{w}{w}{w}{b}
-\truchetcube[(2.4cm,-3cm)]{b}{b}{b}{b}{b}{w}
+  \pic {truchet cube=bbbbbb};
+  \pic at (2,0) {truchet cube=bwbwbw};
+  \pic at (2,2) {truchet cube=bbbwww};
 \end{tikzpicture}
 \end{lstlisting}
 %\iffalse
@@ -393,54 +342,11 @@
 %\fi 
 % \begin{center}
 % \begin{tikzpicture}[x=1.2cm,y=1.2cm]
-% \truchetcube{w}{w}{w}{w}{w}{w}
-% \truchetcube[(0,-3cm)]{b}{b}{b}{b}{b}{b}
-% \truchetcube[(2.4cm,0)]{w}{w}{w}{w}{w}{b}
-% \truchetcube[(2.4cm,-3cm)]{b}{b}{b}{b}{b}{w}
+%  \pic {truchet cube=bbbbbb};
+%  \pic at (2,0) {truchet cube=bwbwbw};
+%  \pic at (2,2) {truchet cube=bbbwww};
 % \end{tikzpicture}
 % \end{center}
 %\iffalse
-
-\newcommand{\truchetcube}[7][(0,0)]{
-  \begin{scope}[shift={#1}]
-    %1.17,0.22
-    %-0.38,0.67
-    \coordinate (A) at (0,0);
-    \coordinate (B) at (1.17,0.22);
-    \coordinate (C) at (0.57,0.84);
-    \coordinate (D) at (-0.6,0.62);
-    \coordinate (E) at (0,1);
-    \coordinate (F) at (1.17,1.22);
-    \coordinate (G) at (0.57,1.84);
-    \coordinate (H) at (-0.6,1.62);
-    %faces
-    \ifthenelse{\equal{#2}{b}}
-    {\fill[black,fill opacity=0.6] (A) -- (B) -- (C) -- (D) -- cycle;}
-    {\fill[white,fill opacity=0.6] (A) -- (B) -- (C) -- (D) -- cycle;}
-    \ifthenelse{\equal{#3}{b}}
-    {\fill[black,fill opacity=0.6] (A) -- (B) -- (F) -- (E) -- cycle;}
-    {\fill[white,fill opacity=0.6] (A) -- (B) -- (F) -- (E) -- cycle;}
-    \ifthenelse{\equal{#4}{b}}
-    {\fill[black,fill opacity=0.6] (B) -- (C) -- (G) -- (F) -- cycle;}
-    {\fill[white,fill opacity=0.6] (B) -- (C) -- (G) -- (F) -- cycle;}
-    \ifthenelse{\equal{#5}{b}}
-    {\fill[black,fill opacity=0.6] (C) -- (D) -- (H) -- (G) -- cycle;}
-    {\fill[white,fill opacity=0.6] (C) -- (D) -- (H) -- (G) -- cycle;}
-    \ifthenelse{\equal{#6}{b}}
-    {\fill[black,fill opacity=0.6] (D) -- (A) -- (E) -- (H) -- cycle;}
-    {\fill[white,fill opacity=0.6] (D) -- (A) -- (E) -- (H) -- cycle;}
-    \ifthenelse{\equal{#7}{b}}
-    {\fill[black,fill opacity=0.6] (E) -- (F) -- (G) -- (H) -- cycle;}
-    {\fill[white,fill opacity=0.6] (E) -- (F) -- (G) -- (H) -- cycle;}
-    %edges
-    \draw[black,line width=1pt] (A) -- (B) -- (C) -- (D) -- cycle;
-    \draw[black,line width=1pt] (E) -- (F) -- (G) -- (H) -- cycle;
-    \draw[black,line width=1pt] (A) -- (E);
-    \draw[black,line width=1pt] (B) -- (F);
-    \draw[black,line width=1pt] (C) -- (G);
-    \draw[black,line width=1pt] (D) -- (H);
-  \end{scope}
-}
-
 %</truchet>
 %\fi
